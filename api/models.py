@@ -6,8 +6,8 @@ class Dialog(models.Model):
     owners = models.ManyToManyField(User, related_name='dialogs', blank=False, null=False,
                                     verbose_name='Участники диалога')
 
-    # last_message = models.ForeignKey('Message', on_delete=models.SET_NULL, null=True, related_name='dialogs',
-    #                                  verbose_name='Последнее сообщение')
+    last_message = models.ForeignKey('Message', on_delete=models.SET_NULL, null=True, related_name='dialogs',
+                                     verbose_name='Последнее сообщение')
 
     class Meta:
         verbose_name = 'Диалог'

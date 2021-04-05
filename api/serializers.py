@@ -1,4 +1,4 @@
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from rest_framework import serializers
 from api.models import Message, Dialog
 from django.contrib.auth.models import User
@@ -25,17 +25,20 @@ class MessageSerializer(serializers.ModelSerializer):
         text = validated_data.get('text', None)
         dialog = validated_data.get('dialog', None)
 
-        if not text or not dialog or text == '':
+        if text is None or text == '':
             raise serializers.ValidationError('Отсутствуют необходимые параметры!')
 
         if self.user not in dialog.owners.all():
-            raise serializers.ValidationError('Вы не имеете доступ к данному диалогу!')
+            raise PermissionDenied
 
         message = Message()
         message.owner = self.user
         message.dialog = dialog
         message.text = text
         message.save()
+
+        dialog.last_message = message
+        dialog.save()
 
         return message
 
@@ -54,7 +57,8 @@ class LastMessageSerializer(serializers.ModelSerializer):
 
 class DialogSerializer(serializers.ModelSerializer):
     owners = UserSerializer(many=True)
-    last_message = serializers.SerializerMethodField()
+    last_message = LastMessageSerializer(read_only=True)
+    # last_message = serializers.SerializerMethodField()
 
     class Meta:
         model = Dialog
@@ -63,7 +67,7 @@ class DialogSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         owners = validated_data.get('owners', None)
 
-        if not owners:
+        if owners is None:
             raise serializers.ValidationError('Вы не задали владельцев диалога!')
 
         if len(owners) != 2:
@@ -89,12 +93,12 @@ class DialogSerializer(serializers.ModelSerializer):
 
         return dialog
 
-    @staticmethod
-    def get_last_message(obj):
-        messages = obj.messages.order_by('-id').first()
-        if messages is None:
-            return None
-        return LastMessageSerializer(messages).data
+    # @staticmethod
+    # def get_last_message(obj):
+    #     messages = obj.messages.order_by('-id').first()
+    #     if messages is None:
+    #         return None
+    #     return LastMessageSerializer(messages).data
 
     def __init__(self, instance=None, data=serializers.empty, user=None, **kwargs):
         super().__init__(instance, data, **kwargs)
