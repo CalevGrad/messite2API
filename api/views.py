@@ -20,6 +20,15 @@ class DialogRetrieveView(generics.RetrieveAPIView):
     serializer_class = DialogSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        if self.request.user not in instance.owners.all():
+            raise PermissionDenied
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
 
 class DialogCreateView(generics.CreateAPIView):
     serializer_class = DialogSerializer
