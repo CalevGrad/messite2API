@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 
 
 class Dialog(models.Model):
-    owners = models.ManyToManyField(User, related_name='dialogs', blank=False, null=False,
+    owners = models.ManyToManyField(User, related_name='dialogs', blank=False,
                                     verbose_name='Участники диалога')
 
     last_message = models.ForeignKey('Message', on_delete=models.SET_NULL, null=True, related_name='dialogs',

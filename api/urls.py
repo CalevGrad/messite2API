@@ -9,5 +9,6 @@ urlpatterns = [
     path('dialogs/all', DialogListView.as_view()),
     path('dialogs/<int:pk>', DialogRetrieveView.as_view()),
     path('dialogs/new', DialogCreateView.as_view()),
-    path('messages/new', MessageCreateView.as_view())
+    path('messages/new', MessageCreateView.as_view()),
+    path('current-user/', CurrentUserView.as_view()),
 ]

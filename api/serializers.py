@@ -58,6 +58,7 @@ class LastMessageSerializer(serializers.ModelSerializer):
 class DialogSerializer(serializers.ModelSerializer):
     owners = UserSerializer(many=True)
     last_message = LastMessageSerializer(read_only=True)
+
     # last_message = serializers.SerializerMethodField()
 
     class Meta:
@@ -109,3 +110,9 @@ class DialogForMessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dialog
         fields = ('id',)
+
+
+class CurrentUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('id', 'username')
