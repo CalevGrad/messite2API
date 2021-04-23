@@ -1,4 +1,5 @@
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
+from django.db.models import Count
 from rest_framework import serializers
 from api.models import Message, Dialog
 from django.contrib.auth.models import User
@@ -83,13 +84,23 @@ class DialogSerializer(serializers.ModelSerializer):
         if user1 != self.user and user2 != self.user:
             raise serializers.ValidationError('Вы не можете создать не свой диалог!')
 
-        if Dialog.objects.filter(owners=user1).filter(owners=user2).exists():
+        if user1 == user2:
+            if Dialog.objects.annotate(owners_count=Count('owners')).filter(owners_count=1, owners=user1).exists():
+                raise serializers.ValidationError('Такой диалог уже существует!')
+        elif Dialog.objects.filter(owners=user1).filter(owners=user2).exists():
             raise serializers.ValidationError('Такой диалог уже существует!')
 
         dialog = Dialog()
         dialog.save()
         dialog.owners.add(user1)
-        dialog.owners.add(user2)
+
+        if user1 != user2:
+            dialog.owners.add(user2)
+
+        message = Message(text=self.message, owner=self.user, dialog=dialog)
+        message.save()
+        dialog.last_message = message
+
         dialog.save()
 
         return dialog
@@ -101,9 +112,10 @@ class DialogSerializer(serializers.ModelSerializer):
     #         return None
     #     return LastMessageSerializer(messages).data
 
-    def __init__(self, instance=None, data=serializers.empty, user=None, **kwargs):
+    def __init__(self, instance=None, data=serializers.empty, user=None, message=None, **kwargs):
         super().__init__(instance, data, **kwargs)
         self.user = user
+        self.message = message
 
 
 class DialogForMessageSerializer(serializers.ModelSerializer):
