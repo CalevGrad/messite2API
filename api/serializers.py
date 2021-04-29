@@ -15,12 +15,13 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class MessageSerializer(serializers.ModelSerializer):
-    owner = UserSerializer(read_only=True)
+    # owner = UserSerializer(read_only=True)
     dialog = 'DialogForMessageSerializer'
 
     class Meta:
         model = Message
         fields = ('id', 'owner', 'dialog', 'text', 'date_create')
+        extra_kwargs = {'owners': {'read_only': True}}
 
     def create(self, validated_data):
         text = validated_data.get('text', None)
@@ -49,7 +50,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
 
 class LastMessageSerializer(serializers.ModelSerializer):
-    owner = UserSerializer()
+    # owner = UserSerializer()
 
     class Meta:
         model = Message
@@ -57,7 +58,7 @@ class LastMessageSerializer(serializers.ModelSerializer):
 
 
 class DialogSerializer(serializers.ModelSerializer):
-    owners = UserSerializer(many=True)
+    # owners = UserSerializer(many=True)
     last_message = LastMessageSerializer(read_only=True)
 
     # last_message = serializers.SerializerMethodField()
@@ -65,9 +66,12 @@ class DialogSerializer(serializers.ModelSerializer):
     class Meta:
         model = Dialog
         fields = ('id', 'owners', 'last_message')
+        extra_kwargs = {'owners': {'many': True}}
 
     def create(self, validated_data):
         owners = validated_data.get('owners', None)
+
+        print(owners)
 
         if owners is None:
             raise serializers.ValidationError('Вы не задали владельцев диалога!')
@@ -75,11 +79,8 @@ class DialogSerializer(serializers.ModelSerializer):
         if len(owners) != 2:
             raise serializers.ValidationError('Участников диалога должно быть два!')
 
-        try:
-            user1 = User.objects.get(id=owners[0]['id'])
-            user2 = User.objects.get(id=owners[1]['id'])
-        except ObjectDoesNotExist:
-            raise serializers.ValidationError('Указанных пользователя(-ей) не существует!')
+        user1 = owners[0]
+        user2 = owners[1]
 
         if user1 != self.user and user2 != self.user:
             raise serializers.ValidationError('Вы не можете создать не свой диалог!')

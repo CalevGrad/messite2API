@@ -144,3 +144,20 @@ class SearchUserListView(generics.ListAPIView):
             raise ValidationError('Введите имя пользователя!')
 
         return User.objects.filter(username__icontains=username)
+
+
+class UserListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = User.objects.all()
+        params = self.request.query_params
+
+        user_id_list = params.getlist('user_id_list[]', None)
+
+        if user_id_list is not None:
+            user_id_list = list(map(int, user_id_list))
+            queryset = queryset.filter(id__in=user_id_list)
+
+        return queryset

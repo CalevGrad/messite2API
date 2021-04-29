@@ -13,5 +13,6 @@ urlpatterns = [
     path('messages/', MessageListView.as_view()),
     path('messages/new', MessageCreateView.as_view()),
     path('current-user/', CurrentUserRetrieveView.as_view()),
-    path('search-user/', SearchUserListView.as_view())
+    path('search-user/', SearchUserListView.as_view()),
+    path('users/', UserListView.as_view()),
 ]
