@@ -16,7 +16,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     # owner = UserSerializer(read_only=True)
-    dialog = 'DialogForMessageSerializer'
+    # dialog = 'DialogForMessageSerializer'
 
     class Meta:
         model = Message
@@ -119,10 +119,10 @@ class DialogSerializer(serializers.ModelSerializer):
         self.message = message
 
 
-class DialogForMessageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Dialog
-        fields = ('id',)
+# class DialogForMessageSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Dialog
+#         fields = ('id',)
 
 
 class CurrentUserSerializer(serializers.ModelSerializer):
