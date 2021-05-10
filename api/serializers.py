@@ -21,7 +21,7 @@ class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
         fields = ('id', 'owner', 'dialog', 'text', 'date_create')
-        extra_kwargs = {'owners': {'read_only': True}}
+        extra_kwargs = {'owner': {'read_only': True}}
 
     def create(self, validated_data):
         text = validated_data.get('text', None)
