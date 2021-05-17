@@ -13,9 +13,9 @@ token_error = {
 bad_request = {
     "detail": "Bad request",
     "code": "bad_request",
-    "messages": [
-        {
-            "type": "The type is missing",
-        }
-    ]
+}
+
+timeout = {
+    "detail": "Connection timeout",
+    "type": "timeout"
 }

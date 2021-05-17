@@ -26,6 +26,22 @@ class Message(models.Model):
     class Meta:
         verbose_name = 'Сообщение'
         verbose_name_plural = 'Сообщения'
+        ordering = ['-id']
+
+    def __str__(self):
+        return str(self.id)
+
+
+class Event(models.Model):
+    owners = models.ManyToManyField(User, related_name='events', blank=False,
+                                    verbose_name='События')
+    type = models.TextField(verbose_name='Тип события')
+    object_id = models.IntegerField(verbose_name='id объекта')
+
+    class Meta:
+        verbose_name = 'Событие'
+        verbose_name_plural = 'События'
+        ordering = ['-id']
 
     def __str__(self):
         return str(self.id)

@@ -2,9 +2,12 @@ import asyncio
 import json
 
 from channels.db import database_sync_to_async
-from channels.exceptions import StopConsumer
 from channels.generic.http import AsyncHttpConsumer
+from django.core.exceptions import ObjectDoesNotExist
 
+from GradientServer import settings
+from api.models import Event
+from api.serializers import EventSerializer
 from templates import bodys
 
 from json import JSONDecodeError
@@ -14,24 +17,94 @@ class LongPollConsumer(AsyncHttpConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(args, kwargs)
         self.post_group_name = None
+        self.lpt = None
+        self.old_events = False
+        self.event_present = False
 
     async def handle(self, body):
-        print(self.scope['user'])
+        print(self.scope['user'], 'connected.')
+        print(self.scope)
         print(body)
 
+        # отсылаем 403, если пользователь не авторизован или токен истёк
         if self.scope['user'].is_anonymous:
             await self.send_response(403, json.dumps(bodys.token_error).encode('utf-8'), headers=[
                 (b"Content-Type", b"application/json"),
             ])
             return
 
-        self.post_group_name = 'user_{}'.format(self.scope['user'].id)
+        # проверяем какие события клиент пропустил
+        try:
+            body_json = json.loads(body)
+            client_event_id = int(body_json['event'])
 
+            # если указанного event у пользователя нет, то возвращаем HTTP 400
+            # соответственно event не будет также если events у пользователя нет вообще
+            if not await self.check_event(self.scope['user'], client_event_id):
+                await self.send_response(400, json.dumps(bodys.bad_request).encode('utf-8'), headers=[
+                    (b"Content-Type", b"application/json"),
+                ])
+                return
+
+            event = await self.get_first_event(self.scope['user'])
+
+            self.event_present = True
+
+            if event.id != client_event_id:
+                self.old_events = True
+                print('tut')
+                events = await self.get_events(client_event_id)
+                print(events)
+                await self.send_response(200, json.dumps({
+                    'type': 'old_events',
+                    'event': event.id,
+                    'data': events
+                }).encode('utf-8'), headers=[
+                    (b"Content-Type", b"application/json"),
+                ])
+                return
+
+        except (JSONDecodeError, KeyError):
+            pass
+
+        self.post_group_name = 'user_{}'.format(self.scope['user'].id)  # задаём имя группы
+
+        # отправляем хеадеры
         await self.send_headers(headers=[
             (b"Content-Type", b"application/json"),
         ])
 
-        await self.channel_layer.group_add(self.post_group_name, self.channel_name)
+        await self.channel_layer.group_add(self.post_group_name, self.channel_name)  # добавляем канал в группу
+
+        # запускаем уничтожитель лонг пола
+        self.lpt = asyncio.run_coroutine_threadsafe(self.long_polling_terminator(), asyncio.get_running_loop())
+
+    @database_sync_to_async
+    def get_first_event(self, user):
+        """
+        Получает последнее событие пользователя
+        """
+        return user.events.first()
+
+    @database_sync_to_async
+    def get_first_event_id(self, user):
+        """
+        Получает последнее событие пользователя
+        """
+        return user.events.first().id
+
+    @database_sync_to_async
+    def check_event(self, user, event_id):
+        try:
+            user.events.get(id=event_id)
+            return True
+        except ObjectDoesNotExist:
+            return False
+
+    @database_sync_to_async
+    def get_events(self, event_id):
+        events = Event.objects.filter(id__gt=event_id)
+        return EventSerializer(events, many=True).data
 
     async def http_request(self, message):
         """
@@ -50,19 +123,31 @@ class LongPollConsumer(AsyncHttpConsumer):
 
     async def disconnect(self):
         # await self.send_body(json.dumps({"detail": "Connection timeout", "code": "timeout"}).encode('utf-8'))
-        await self.channel_layer.group_discard(
-            self.post_group_name,
-            self.channel_name,
-        )
+        if self.lpt is not None:
+            self.lpt.cancel()  # закрываем терминатор лонг полла
+        if not self.old_events:
+            await self.channel_layer.group_discard(
+                self.post_group_name,
+                self.channel_name,
+            )
 
     async def new_message(self, event):
         print('Event NEW MESSAGE', event)
-        await self.send_body(json.dumps(event).encode(('utf-8')))
+        await self.send_body(json.dumps(event).encode('utf-8'))
 
     async def new_dialog(self, event):
         print('Event NEW DIALOG', event)
-        await self.send_body(json.dumps(event).encode(('utf-8')))
+        await self.send_body(json.dumps(event).encode('utf-8'))
 
+    async def long_polling_terminator(self):
+        """
+        Ожидает LONG_POLLING_TIMEOUT секунд и завершает запрос клиента с ответом timeout
+        """
+        await asyncio.sleep(settings.LONG_POLLING_TIMEOUT)
+        data = bodys.timeout
+        if not self.event_present:
+            data['event'] = await self.get_first_event_id(self.scope['user'])
+        await self.send_body(json.dumps(data).encode('utf-8'))
 
 # class UserConsumer(AsyncJsonWebsocketConsumer):
 #     async def connect(self):

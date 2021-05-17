@@ -1,7 +1,11 @@
+import json
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.db.models import Count
 from rest_framework import serializers
-from api.models import Message, Dialog
+from api.models import Message, Dialog, Event
 from django.contrib.auth.models import User
 
 
@@ -30,7 +34,9 @@ class MessageSerializer(serializers.ModelSerializer):
         if text is None or text == '':
             raise serializers.ValidationError('Отсутствуют необходимые параметры!')
 
-        if self.user not in dialog.owners.all():
+        owners = dialog.owners.all()
+
+        if self.user not in owners:
             raise PermissionDenied
 
         message = Message()
@@ -41,6 +47,8 @@ class MessageSerializer(serializers.ModelSerializer):
 
         dialog.last_message = message
         dialog.save()
+
+        send_event('new_message', owners, MessageSerializer(message).data)
 
         return message
 
@@ -70,8 +78,6 @@ class DialogSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         owners = validated_data.get('owners', None)
-
-        print(owners)
 
         if owners is None:
             raise serializers.ValidationError('Вы не задали владельцев диалога!')
@@ -104,6 +110,8 @@ class DialogSerializer(serializers.ModelSerializer):
 
         dialog.save()
 
+        send_event('new_dialog', owners, DialogSerializer(dialog).data)
+
         return dialog
 
     # @staticmethod
@@ -129,3 +137,46 @@ class CurrentUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ('id', 'username')
+
+
+class EventSerializer(serializers.ModelSerializer):
+    data = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Event
+        fields = ('id', 'type', 'data')
+
+    def get_data(self, obj):
+        if obj.type == 'new_dialog':
+            return DialogSerializer(Dialog.objects.get(id=obj.object_id)).data
+        if obj.type == 'new_message':
+            return MessageSerializer(Message.objects.get(id=obj.object_id)).data
+
+
+def create_event(type, owners, object_id):
+    """
+    Создаёт событие
+    """
+    event = Event()
+    event.type = type
+    event.object_id = object_id
+    event.save()
+    for owner in owners:
+        event.owners.add(owner)
+    event.save()
+    return event
+
+
+def send_event(type, owners, data):
+    """
+    Отсылает событие каналам
+    """
+    event = create_event(type, owners, data['id'])
+    channel_layer = get_channel_layer()
+    for user in owners:
+        async_to_sync(channel_layer.group_send)('user_{}'.format(user.id),
+                                                {
+                                                    'type': type,
+                                                    'event': event.id,
+                                                    'data': data
+                                                })
