@@ -1,4 +1,4 @@
-import json
+import bleach
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
-    id = serializers.ModelField(model_field=User._meta.get_field('id'))
+    # id = serializers.ModelField(model_field=User._meta.get_field('id'))
 
     class Meta:
         model = User
@@ -57,17 +57,17 @@ class MessageSerializer(serializers.ModelSerializer):
         self.user = user
 
 
-class LastMessageSerializer(serializers.ModelSerializer):
-    # owner = UserSerializer()
-
-    class Meta:
-        model = Message
-        fields = ('id', 'owner', 'text', 'date_create')
+# class LastMessageSerializer(serializers.ModelSerializer):
+#     # owner = UserSerializer()
+#
+#     class Meta:
+#         model = Message
+#         fields = ('id', 'owner', 'text', 'date_create')
 
 
 class DialogSerializer(serializers.ModelSerializer):
     # owners = UserSerializer(many=True)
-    last_message = LastMessageSerializer(read_only=True)
+    last_message = MessageSerializer(read_only=True)
 
     # last_message = serializers.SerializerMethodField()
 
@@ -133,10 +133,10 @@ class DialogSerializer(serializers.ModelSerializer):
 #         fields = ('id',)
 
 
-class CurrentUserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = ('id', 'username')
+# class CurrentUserSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = User
+#         fields = ('id', 'username')
 
 
 class EventSerializer(serializers.ModelSerializer):

@@ -37,13 +37,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'djoser',
-    # 'corsheaders',
+    'corsheaders',
     'api.apps.ApiConfig',
     'channels',
 ]
 
 MIDDLEWARE = [
-    # 'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -157,7 +157,12 @@ SIMPLE_JWT = {
 
 # CORS_ORIGIN_ALLOW_ALL = True
 
-LONG_POLLING_TIMEOUT = 5  # second
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://192.168.88.251:8080",
+]
+
+LONG_POLLING_TIMEOUT = 10  # second
 
 APPEND_SLASH = True
 

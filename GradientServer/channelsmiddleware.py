@@ -14,12 +14,6 @@ from channels.auth import AuthMiddlewareStack
 from django.urls import resolve
 
 
-
-
-def get_anonymous_user():
-    return AnonymousUser()
-
-
 class TokenAuthMiddleware(BaseMiddleware):
     """
     Custom token auth middleware
@@ -29,7 +23,7 @@ class TokenAuthMiddleware(BaseMiddleware):
         self.inner = inner
 
     async def __call__(self, scope, receive, send):
-        close_old_connections()
+        # close_old_connections()
 
         token = ''
 
@@ -47,7 +41,7 @@ class TokenAuthMiddleware(BaseMiddleware):
             UntypedToken(token)
         except (InvalidToken, TokenError) as e:
             print(e)
-            scope['user'] = get_anonymous_user()
+            scope['user'] = AnonymousUser()
         else:
             decoded_data = jwt_decode(token, settings.SECRET_KEY, algorithms=["HS256"])
             scope['user'] = await self.get_user(decoded_data)

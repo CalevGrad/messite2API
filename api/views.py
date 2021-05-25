@@ -1,4 +1,6 @@
 from rest_framework import generics, permissions, status
+
+from .permissions import IsOwner
 from .serializers import *
 from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError, NotFound
@@ -11,27 +13,27 @@ class DialogListView(generics.ListAPIView):
 
     def get_queryset(self):
         queryset = self.request.user.dialogs.all()
-        queryset = queryset.order_by("-last_message_id")
+        # queryset = queryset.order_by("-last_message_id")
         return queryset
 
 
 class DialogRetrieveView(generics.RetrieveAPIView):
     queryset = Dialog.objects.all()
     serializer_class = DialogSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsOwner]
 
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-
-        if self.request.user not in instance.owners.all():
-            raise PermissionDenied
-
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+    # def retrieve(self, request, *args, **kwargs):
+    #     instance = self.get_object()
+    #
+    #     if self.request.user not in instance.owners.all():
+    #         raise PermissionDenied
+    #
+    #     serializer = self.get_serializer(instance)
+    #     return Response(serializer.data)
 
 
 class DialogExistRetrieveView(generics.RetrieveAPIView):
-    queryset = Dialog.objects.all()
+    # queryset = Dialog.objects.all()
     serializer_class = DialogSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -109,6 +111,10 @@ class MessageListView(generics.ListAPIView):
         return queryset
 
 
+class MessageRetrieveView(generics.RetrieveAPIView):
+    pass
+
+
 class MessageCreateView(generics.CreateAPIView):
     queryset = Message.objects.all()
     serializer_class = MessageSerializer
@@ -123,7 +129,7 @@ class MessageCreateView(generics.CreateAPIView):
 
 
 class CurrentUserRetrieveView(generics.RetrieveAPIView):
-    serializer_class = CurrentUserSerializer
+    serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def retrieve(self, request, *args, **kwargs):
@@ -161,3 +167,7 @@ class UserListView(generics.ListAPIView):
             queryset = queryset.filter(id__in=user_id_list)
 
         return queryset
+
+
+class UserRetrieveView(generics.RetrieveAPIView):
+    pass

@@ -1,16 +1,14 @@
 import asyncio
 import json
-
+from json import JSONDecodeError
 from channels.db import database_sync_to_async
+from channels.exceptions import StopConsumer
 from channels.generic.http import AsyncHttpConsumer
 from django.core.exceptions import ObjectDoesNotExist
-
 from GradientServer import settings
 from api.models import Event
 from api.serializers import EventSerializer
 from templates import bodys
-
-from json import JSONDecodeError
 
 
 class LongPollConsumer(AsyncHttpConsumer):
@@ -52,9 +50,7 @@ class LongPollConsumer(AsyncHttpConsumer):
 
             if event.id != client_event_id:
                 self.old_events = True
-                print('tut')
                 events = await self.get_events(client_event_id)
-                print(events)
                 await self.send_response(200, json.dumps({
                     'type': 'old_events',
                     'event': event.id,
@@ -78,6 +74,32 @@ class LongPollConsumer(AsyncHttpConsumer):
 
         # запускаем уничтожитель лонг пола
         self.lpt = asyncio.run_coroutine_threadsafe(self.long_polling_terminator(), asyncio.get_running_loop())
+
+    async def disconnect(self):
+        # await self.send_body(json.dumps({"detail": "Connection timeout", "code": "timeout"}).encode('utf-8'))
+        if self.lpt is not None:
+            self.lpt.cancel()  # закрываем терминатор лонг полла
+        if not self.old_events and not self.scope['user'].is_anonymous:
+            await self.channel_layer.group_discard(
+                self.post_group_name,
+                self.channel_name,
+            )
+        raise StopConsumer()
+
+    async def http_request(self, message):
+        """
+        Async entrypoint - concatenates body fragments and hands off control
+        to ``self.handle`` when the body has been completely received.
+        """
+        if "body" in message:
+            self.body.append(message["body"])
+        if not message.get("more_body"):
+            try:
+                await self.handle(b"".join(self.body))
+            finally:
+                pass
+                # await self.disconnect()
+                # raise StopConsumer()
 
     @database_sync_to_async
     def get_first_event(self, user):
@@ -105,31 +127,6 @@ class LongPollConsumer(AsyncHttpConsumer):
     def get_events(self, event_id):
         events = Event.objects.filter(id__gt=event_id)
         return EventSerializer(events, many=True).data
-
-    async def http_request(self, message):
-        """
-        Async entrypoint - concatenates body fragments and hands off control
-        to ``self.handle`` when the body has been completely received.
-        """
-        if "body" in message:
-            self.body.append(message["body"])
-        if not message.get("more_body"):
-            try:
-                await self.handle(b"".join(self.body))
-            finally:
-                pass
-                # await self.disconnect()
-                # raise StopConsumer()
-
-    async def disconnect(self):
-        # await self.send_body(json.dumps({"detail": "Connection timeout", "code": "timeout"}).encode('utf-8'))
-        if self.lpt is not None:
-            self.lpt.cancel()  # закрываем терминатор лонг полла
-        if not self.old_events:
-            await self.channel_layer.group_discard(
-                self.post_group_name,
-                self.channel_name,
-            )
 
     async def new_message(self, event):
         print('Event NEW MESSAGE', event)

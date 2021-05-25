@@ -12,6 +12,7 @@ class Dialog(models.Model):
     class Meta:
         verbose_name = 'Диалог'
         verbose_name_plural = 'Диалоги'
+        ordering = ['-last_message__id']
 
     def __str__(self):
         return str(self.id)
